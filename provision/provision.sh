@@ -687,6 +687,17 @@ wpdeploy_install() {
   fi
 }
 
+# Move theme
+
+move_theme() {
+   # Install and configure the latest stable version of WordPress
+  if [[ ! -d "/srv/www/wordpress-development/public/content/themes/twentyfifteen" ]]; then
+   echo "Moving theme"
+   mv "/srv/www/wordpress-development/public/wordpress/wp-content/themes/twentyfifteen" "/srv/www/wordpress-development/public/content/themes/twentyfifteen"
+  else
+    echo "Theme already moved"
+  fi
+}
 
 custom_vvv(){
   # Find new sites to setup.
@@ -784,6 +795,7 @@ wordpress_development
 # wordpress_staging
 
 wpdeploy_install
+move_theme
 
 # VVV custom site import
 echo " "
