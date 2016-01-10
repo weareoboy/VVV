@@ -678,102 +678,14 @@ wpdeploy_install() {
    # Install and configure the latest stable version of WordPress
   if [[ ! -d "/srv/www/wordpress-development/public/config" ]]; then
    echo "Installing wp deploy"
-   git clone "https://github.com/weareoboy/wp-deploy.git" "/srv/www/wordpress-development/public"
    cd /srv/www/wordpress-development/public
+   git clone "https://github.com/weareoboy/wp-deploy.git" 
+   cd /srv/www/wordpress-development/public/wp-deploy
    bundle install
   else
     echo "WP Deploy is already installed"
   fi
 }
-
-
-#wpsvn_check() {
-  # Test to see if an svn upgrade is needed
-#  svn_test=$( svn status -u "/srv/www/wordpress-develop/" 2>&1 );
-
- # if [[ "$svn_test" == *"svn upgrade"* ]]; then
-  # If the wordpress-develop svn repo needed an upgrade, they probably all need it
-#    for repo in $(find /srv/www -maxdepth 5 -type d -name '.svn'); do
-#      svn upgrade "${repo/%\.svn/}"
-#    done
-#  fi;
-#}
-
-# wordpress_integration() {
-  # Checkout, install and configure WordPress integration via core.svn
-#  if [[ ! -d "/srv/www/wordpress-integration" ]]; then
-#    echo "Checking out WordPress trunk from core.svn, see https://core.svn.wordpress.org/trunk"
-#    svn checkout "https://core.svn.wordpress.org/trunk/" "/srv/www/wordpress-integration"
-#    cd /srv/www/wordpress-integration
-#    echo "Configuring WordPress Integration.."
-#    noroot wp core config --dbname=wordpress_trunk --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
-# // Match any requests made via xip.io.
-# if ( isset( \$_SERVER['HTTP_HOST'] ) && preg_match('/^(integration.local.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(.xip.io)\z/', \$_SERVER['HTTP_HOST'] ) ) {
-# define( 'WP_HOME', 'http://' . \$_SERVER['HTTP_HOST'] );
-# define( 'WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST'] );
-# }
-#
-# define( 'WP_DEBUG', true );
-# PHP
-#    echo "Installing WordPress trunk..."
-#    noroot wp core install --url=local.wordpress-trunk.dev --quiet --title="Local WordPress Integration Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
-#  else
-#    echo "Updating WordPress trunk..."
-#    cd /srv/www/wordpress-integration
-#    svn up
-#  fi
-#}
-: <<'end_long_comment'
-
-wordpress_staging(){
-  # Checkout, install and configure WordPress trunk via develop.svn
-  if [[ ! -d "/srv/www/wordpress-staging" ]]; then
-    echo "Checking out WordPress trunk from develop.svn, see https://develop.svn.wordpress.org/trunk"
-    svn checkout "https://develop.svn.wordpress.org/trunk/" "/srv/www/wordpress-staging"
-    cd /srv/www/wordpress-staging/build/
-    echo "Configuring WordPress staging..."
-    noroot wp core config --dbname=wordpress_develop --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
-// Match any requests made via xip.io.
-if ( isset( \$_SERVER['HTTP_HOST'] ) && preg_match('/^(src|staging)(.local.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(.xip.io)\z/', \$_SERVER['HTTP_HOST'] ) ) {
-define( 'WP_HOME', 'http://' . \$_SERVER['HTTP_HOST'] );
-define( 'WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST'] );
-} else if ( 'prod' === basename( dirname( __FILE__ ) ) ) {
-// Allow (src|build).wordpress-develop.dev to share the same Database
-define( 'WP_HOME', 'http://staging.local.dev' );
-define( 'WP_SITEURL', 'http://staging.local.dev' );
-}
-
-define( 'WP_DEBUG', true );
-PHP
-    echo "Installing WordPress staging..."
-    noroot wp core install --url=staging.local.dev --quiet --title="WordPress Develop" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
-    cp /srv/config/wordpress-config/wp-tests-config.php /srv/www/wordpress-staging/
-    cd /srv/www/wordpress-staging/
-    echo "Running npm install for the first time, this may take several minutes..."
-    noroot npm install &>/dev/null
-  else
-    echo "Updating WordPress develop..."
-    cd /srv/www/wordpress-staging/
-    if [[ -e .svn ]]; then
-      svn up
-    else
-      if [[ $(git rev-parse --abbrev-ref HEAD) == 'master' ]]; then
-        git pull --no-edit git://develop.git.wordpress.org/ master
-      else
-        echo "Skip auto git pull on develop.git.wordpress.org since not on master branch"
-      fi
-    fi
-    echo "Updating npm packages..."
-    noroot npm install &>/dev/null
-  fi
-
-  if [[ ! -d "/srv/www/wordpress-develop/build" ]]; then
-    echo "Initializing grunt in WordPress develop... This may take a few moments."
-    cd /srv/www/wordpress-staging/
-    grunt
-  fi
-}
-end_long_comment
 
 
 custom_vvv(){
