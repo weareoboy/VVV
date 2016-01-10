@@ -10,7 +10,6 @@
 # By storing the date now, we can calculate the duration of provisioning at the
 # end of this script.
 start_seconds="$(date +%s)"
-
 # PACKAGE INSTALLATION
 #
 # Build a bash array to pass all of the packages we want to install to a single
