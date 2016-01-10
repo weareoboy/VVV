@@ -765,7 +765,6 @@ echo " "
 echo "Main packages check and install."
 package_install
 tools_install
-capistrano_install
 nginx_setup
 mailcatcher_setup
 phpfpm_setup
@@ -801,6 +800,8 @@ move_theme
 echo " "
 echo "VVV custom site import"
 custom_vvv
+
+capistrano_install
 
 #set +xv
 # And it's done
