@@ -29,6 +29,14 @@ Vagrant.configure("2") do |config|
     v.cpus = 1
   end
 
+config.ssh.username = 'vagrant'
+config.ssh.password = 'vagrant'
+config.ssh.insert_key = 'true'
+  
+  config.vm.provider :virtualbox do |vb|
+  vb.gui = true
+  end
+
   # Configuration options for the VMware Fusion provider.
   config.vm.provider :vmware_fusion do |v|
     v.vmx["memsize"] = "1024"

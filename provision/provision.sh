@@ -10,6 +10,7 @@
 # By storing the date now, we can calculate the duration of provisioning at the
 # end of this script.
 start_seconds="$(date +%s)"
+
 # PACKAGE INSTALLATION
 #
 # Build a bash array to pass all of the packages we want to install to a single
@@ -90,7 +91,6 @@ apt_package_check_list=(
   libsqlite3-dev
 
 )
-
 ### FUNCTIONS
 
 network_detection() {
@@ -232,6 +232,10 @@ tools_install() {
   # Make sure we have the latest npm version and the update checker module
   npm install -g npm
   npm install -g npm-check-updates
+
+  # Install bundler
+  apt-get install bundler
+
 
   # xdebug
   #
@@ -553,6 +557,39 @@ webgrind_install() {
   fi
 }
 
+
+capistrano_install() {
+  # Capistrano installer
+  if gem list -i capistrano; then
+    echo -e "\nUpdating capistrano..."
+    gem update capistrano
+  else
+    echo -e "\nDownloading capistrano and it's plugins"
+    curl -L get.rvm.io | bash -s stable
+    source /etc/profile.d/rvm.sh
+    rvm reload
+    rvm install 2.1.0
+    echo ruby --version 
+    gem install capistrano
+    gem install railsless-deploy
+    gem install capistrano-ext
+  fi
+}
+
+
+add_deployer_user() {
+    if ! grep -c '^deployer:' /etc/passwd; then
+      password="deployer"
+      pass=$(perl -e 'print crypt($ARGV[0], "password")' $password)
+      groupadd deployer
+      useradd -g deployer -m deployer -p "$pass" 
+      echo 'deployer  ALL=(ALL:ALL) ALL' >> /etc/sudoers
+      echo "User has been added to system!"
+    else
+    echo -e "\nDeployment user is already created"
+   fi
+}
+
 php_codesniff() {
   # PHP_CodeSniffer (for running WordPress-Coding-Standards)
   if [[ ! -d "/srv/www/phpcs" ]]; then
@@ -603,101 +640,120 @@ phpmyadmin_setup() {
   cp "/srv/config/phpmyadmin-config/config.inc.php" "/srv/www/default/database-admin/"
 }
 
-wordpress_default() {
+wordpress_development() {
   # Install and configure the latest stable version of WordPress
-  if [[ ! -d "/srv/www/wordpress-default" ]]; then
-    echo "Downloading WordPress Stable, see http://wordpress.org/"
+  if [[ ! -d "/srv/www/wordpress-development" ]]; then
+    echo "Downloading WordPress Development, see http://wordpress.org/"
     cd /srv/www/
-    curl -L -O "https://wordpress.org/latest.tar.gz"
-    noroot tar -xvf latest.tar.gz
-    mv wordpress wordpress-default
-    rm latest.tar.gz
-    cd /srv/www/wordpress-default
-    echo "Configuring WordPress Stable..."
-    noroot wp core config --dbname=wordpress_default --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
-// Match any requests made via xip.io.
-if ( isset( \$_SERVER['HTTP_HOST'] ) && preg_match('/^(local.wordpress.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(.xip.io)\z/', \$_SERVER['HTTP_HOST'] ) ) {
-define( 'WP_HOME', 'http://' . \$_SERVER['HTTP_HOST'] );
-define( 'WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST'] );
-}
+    git clone "https://github.com/ravaboard/suzie.git" "/srv/www/wordpress-development"
+    cd /srv/www/wordpress-development
+    composer install
+    mv .env.example .env
+    sed -i -e 's/DB_NAME=suzie/DB_NAME=wordpress_development/g' .env
+    sed -i -e 's/DB_PASSWORD=password/DB_PASSWORD=root/g' .env
+    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://development.local.dev|' .env
+
+    echo "Configuring WordPress Development..."
+    noroot wp core config --dbname=wordpress_development --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
+    // Match any requests made via xip.io.
+    if ( isset( \$_SERVER['HTTP_HOST'] ) && preg_match('/^(development.local.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(.xip.io)\z/', \$_SERVER['HTTP_HOST'] ) ) {
+    define( 'WP_HOME', 'http://' . \$_SERVER['HTTP_HOST'] );
+    define( 'WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST'] );
+    }
 
 define( 'WP_DEBUG', true );
 PHP
-    echo "Installing WordPress Stable..."
-    noroot wp core install --url=local.wordpress.dev --quiet --title="Local WordPress Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
+    echo "Installing WordPress Development..."
+    noroot wp core install --url=development.local.dev --quiet --title="Local WordPress Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
   else
-    echo "Updating WordPress Stable..."
-    cd /srv/www/wordpress-default
-    noroot wp core upgrade
+    echo "Updating WordPress Development..."
+    cd /srv/www/wordpress-development
+    git pull --rebase origin master
+    composer update
   fi
 }
 
-wpsvn_check() {
+
+wpdeploy_install() {
+   # Install and configure the latest stable version of WordPress
+  if [[ ! -d "/srv/www/wordpress-development/public/config" ]]; then
+   echo "Installing wp deploy"
+   git clone "https://github.com/weareoboy/wp-deploy.git" "/srv/www/wordpress-development/public"
+   cd /srv/www/wordpress-development/public
+   bundle install
+  else
+    echo "WP Deploy is already installed"
+  fi
+}
+
+
+#wpsvn_check() {
   # Test to see if an svn upgrade is needed
-  svn_test=$( svn status -u "/srv/www/wordpress-develop/" 2>&1 );
+#  svn_test=$( svn status -u "/srv/www/wordpress-develop/" 2>&1 );
 
-  if [[ "$svn_test" == *"svn upgrade"* ]]; then
+ # if [[ "$svn_test" == *"svn upgrade"* ]]; then
   # If the wordpress-develop svn repo needed an upgrade, they probably all need it
-    for repo in $(find /srv/www -maxdepth 5 -type d -name '.svn'); do
-      svn upgrade "${repo/%\.svn/}"
-    done
-  fi;
-}
+#    for repo in $(find /srv/www -maxdepth 5 -type d -name '.svn'); do
+#      svn upgrade "${repo/%\.svn/}"
+#    done
+#  fi;
+#}
 
-wordpress_trunk() {
-  # Checkout, install and configure WordPress trunk via core.svn
-  if [[ ! -d "/srv/www/wordpress-trunk" ]]; then
-    echo "Checking out WordPress trunk from core.svn, see https://core.svn.wordpress.org/trunk"
-    svn checkout "https://core.svn.wordpress.org/trunk/" "/srv/www/wordpress-trunk"
-    cd /srv/www/wordpress-trunk
-    echo "Configuring WordPress trunk..."
-    noroot wp core config --dbname=wordpress_trunk --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
-// Match any requests made via xip.io.
-if ( isset( \$_SERVER['HTTP_HOST'] ) && preg_match('/^(local.wordpress-trunk.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(.xip.io)\z/', \$_SERVER['HTTP_HOST'] ) ) {
-define( 'WP_HOME', 'http://' . \$_SERVER['HTTP_HOST'] );
-define( 'WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST'] );
-}
+# wordpress_integration() {
+  # Checkout, install and configure WordPress integration via core.svn
+#  if [[ ! -d "/srv/www/wordpress-integration" ]]; then
+#    echo "Checking out WordPress trunk from core.svn, see https://core.svn.wordpress.org/trunk"
+#    svn checkout "https://core.svn.wordpress.org/trunk/" "/srv/www/wordpress-integration"
+#    cd /srv/www/wordpress-integration
+#    echo "Configuring WordPress Integration.."
+#    noroot wp core config --dbname=wordpress_trunk --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
+# // Match any requests made via xip.io.
+# if ( isset( \$_SERVER['HTTP_HOST'] ) && preg_match('/^(integration.local.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(.xip.io)\z/', \$_SERVER['HTTP_HOST'] ) ) {
+# define( 'WP_HOME', 'http://' . \$_SERVER['HTTP_HOST'] );
+# define( 'WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST'] );
+# }
+#
+# define( 'WP_DEBUG', true );
+# PHP
+#    echo "Installing WordPress trunk..."
+#    noroot wp core install --url=local.wordpress-trunk.dev --quiet --title="Local WordPress Integration Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
+#  else
+#    echo "Updating WordPress trunk..."
+#    cd /srv/www/wordpress-integration
+#    svn up
+#  fi
+#}
+: <<'end_long_comment'
 
-define( 'WP_DEBUG', true );
-PHP
-    echo "Installing WordPress trunk..."
-    noroot wp core install --url=local.wordpress-trunk.dev --quiet --title="Local WordPress Trunk Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
-  else
-    echo "Updating WordPress trunk..."
-    cd /srv/www/wordpress-trunk
-    svn up
-  fi
-}
-
-wordpress_develop(){
+wordpress_staging(){
   # Checkout, install and configure WordPress trunk via develop.svn
-  if [[ ! -d "/srv/www/wordpress-develop" ]]; then
+  if [[ ! -d "/srv/www/wordpress-staging" ]]; then
     echo "Checking out WordPress trunk from develop.svn, see https://develop.svn.wordpress.org/trunk"
-    svn checkout "https://develop.svn.wordpress.org/trunk/" "/srv/www/wordpress-develop"
-    cd /srv/www/wordpress-develop/src/
-    echo "Configuring WordPress develop..."
+    svn checkout "https://develop.svn.wordpress.org/trunk/" "/srv/www/wordpress-staging"
+    cd /srv/www/wordpress-staging/build/
+    echo "Configuring WordPress staging..."
     noroot wp core config --dbname=wordpress_develop --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
 // Match any requests made via xip.io.
-if ( isset( \$_SERVER['HTTP_HOST'] ) && preg_match('/^(src|build)(.wordpress-develop.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(.xip.io)\z/', \$_SERVER['HTTP_HOST'] ) ) {
+if ( isset( \$_SERVER['HTTP_HOST'] ) && preg_match('/^(src|staging)(.local.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(.xip.io)\z/', \$_SERVER['HTTP_HOST'] ) ) {
 define( 'WP_HOME', 'http://' . \$_SERVER['HTTP_HOST'] );
 define( 'WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST'] );
-} else if ( 'build' === basename( dirname( __FILE__ ) ) ) {
+} else if ( 'prod' === basename( dirname( __FILE__ ) ) ) {
 // Allow (src|build).wordpress-develop.dev to share the same Database
-define( 'WP_HOME', 'http://build.wordpress-develop.dev' );
-define( 'WP_SITEURL', 'http://build.wordpress-develop.dev' );
+define( 'WP_HOME', 'http://staging.local.dev' );
+define( 'WP_SITEURL', 'http://staging.local.dev' );
 }
 
 define( 'WP_DEBUG', true );
 PHP
-    echo "Installing WordPress develop..."
-    noroot wp core install --url=src.wordpress-develop.dev --quiet --title="WordPress Develop" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
-    cp /srv/config/wordpress-config/wp-tests-config.php /srv/www/wordpress-develop/
-    cd /srv/www/wordpress-develop/
+    echo "Installing WordPress staging..."
+    noroot wp core install --url=staging.local.dev --quiet --title="WordPress Develop" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
+    cp /srv/config/wordpress-config/wp-tests-config.php /srv/www/wordpress-staging/
+    cd /srv/www/wordpress-staging/
     echo "Running npm install for the first time, this may take several minutes..."
     noroot npm install &>/dev/null
   else
     echo "Updating WordPress develop..."
-    cd /srv/www/wordpress-develop/
+    cd /srv/www/wordpress-staging/
     if [[ -e .svn ]]; then
       svn up
     else
@@ -713,10 +769,12 @@ PHP
 
   if [[ ! -d "/srv/www/wordpress-develop/build" ]]; then
     echo "Initializing grunt in WordPress develop... This may take a few moments."
-    cd /srv/www/wordpress-develop/
+    cd /srv/www/wordpress-staging/
     grunt
   fi
 }
+end_long_comment
+
 
 custom_vvv(){
   # Find new sites to setup.
@@ -776,6 +834,7 @@ network_check
 # Profile_setup
 echo "Bash profile setup and directories."
 profile_setup
+add_deployer_user
 
 network_check
 # Package and Tools Install
@@ -783,6 +842,7 @@ echo " "
 echo "Main packages check and install."
 package_install
 tools_install
+capistrano_install
 nginx_setup
 mailcatcher_setup
 phpfpm_setup
@@ -804,12 +864,14 @@ phpmyadmin_setup
 network_check
 # Time for WordPress!
 echo " "
-echo "Installing/updating WordPress Stable, Trunk & Develop"
+echo "Installing/updating WordPress Development Environment"
 
-wordpress_default
-wpsvn_check
-wordpress_trunk
-wordpress_develop
+wordpress_development
+# wpsvn_check
+# wordpress_integration
+# wordpress_staging
+
+wpdeploy_install
 
 # VVV custom site import
 echo " "
