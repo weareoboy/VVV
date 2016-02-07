@@ -56,9 +56,6 @@ apt_package_check_list=(
   php5-curl
   php-pear
   php5-gd
-  
-  # Installing phpmyadmin
-  phpmyadmin
 
   # nginx is installed as the default web server
   nginx
@@ -171,11 +168,8 @@ add_deployer_user() {
   # exporting some variables
     export ADMIN_MAIL=donatas.stirbys@hotmail.com
     export GMAIL_MAIL=donatas.stirbys@gmail.com
-    export domain=http://www.happybits.lt
-    export SERVER_IP=178.62.83.46
     export HOME=/home/deployer
-
-
+    export DEBIAN_FRONTEND=noninteractive
 	# Add new user
     if ! grep -c '^deployer:' /etc/passwd > /dev/null; then
       password="deployer"
@@ -186,33 +180,9 @@ add_deployer_user() {
       chmod 700 /home/deployer/.ssh
       echo 'deployer  ALL=(ALL:ALL) ALL' >> /etc/sudoers
       echo "User has been added to system!"
-  
-   # Protect su by limiting access only to admin group.
-	  sudo groupadd admin
-	  sudo usermod -a -G admin deployer
-    # exec su -l deployer
-
-	  # generate a key pair
-	  ssh-keygen -t rsa -N "" -f /home/deployer/.ssh/id_rsa
-	
-      # https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-keys--2
-      
-	  cd /etc/ssh/
-	  sed -i -e 's/Port 22/Port 25000/g' sshd_config
-   	sed -i -e 's/PermitRootLogin yes/PermitRootLogin no/g' sshd_config
-	  echo "DebianBanner no" >> sshd_config #Hides debian version on Ubuntu
-	  echo "UseDNS no" >> sshd_config
-	  echo "AllowUsers deployer" >> sshd_config
-
-	  # Restart ssh
-
-	  service ssh restart
-
-    ssh-copy-id deployer@$SERVER_IP -p 25000
-    chmod 400 /home/deployer/.ssh/authorized_keys
-    chown deployer:deployer /home/deployer -R
-
-
+  	  sudo groupadd admin
+  	  sudo usermod -a -G admin deployer
+      chown deployer:deployer /home/deployer -R
     else
     echo -e "\nDeployment user is already created"
    fi
@@ -357,7 +327,7 @@ package_install() {
 
     # Install required packages
     echo "Installing apt-get packages..."
-    apt-get install -y ${apt_package_install_list[@]}
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -q -y ${apt_package_install_list[@]}
 
     # Clean up apt caches
     apt-get clean
@@ -413,8 +383,8 @@ tools_install() {
     echo "Moving Github token"
     sudo mkdir -p /home/deployer/.composer/   
     sudo mkdir -p /root/.config/composer
-    sudo cp /srv/initial/auth.json /home/deployer/.composer/
-    sudo cp /srv/initial/auth.json /root/.config/composer
+    sudo cp auth.json /home/deployer/.composer/
+    sudo cp auth.json /root/.config/composer
   fi
 
 	# Set up git
@@ -457,11 +427,11 @@ nginx_setup() {
   # Copy nginx configuration from local
   sudo cp -f "/srv/config/nginx-config/nginx.conf" "/etc/nginx/nginx.conf"
   sudo cp -f "/srv/config/nginx-config/nginx-wp-common.conf" "/etc/nginx/nginx-wp-common.conf"
-  sudo cp -f "/srv/config/nginx-config/sites/default" "/etc/nginx/sites-available/default"
+  sudo cp -f "/srv/config/nginx-config/sites/default" "/etc/nginx/conf.d/default.conf"
 
   echo " * Copied /srv/config/nginx-config/nginx.conf to /etc/nginx/nginx.conf"
   echo " * Copied /srv/config/nginx-config/nginx-wp-common.conf to /etc/nginx/nginx-wp-common.conf"
-  echo " * Copied /srv/config/nginx-config/sites/default.conf to /etc/nginx/sites-available/default.conf"
+  echo " * Copied /srv/config/nginx-config/sites/default.conf to /etc/nginx/conf.d/default.conf"
 }
 
 phpfpm_setup() {
@@ -485,7 +455,7 @@ phpfpm_setup() {
   # Copy memcached configuration from local
   cp "/srv/config/memcached-config/memcached.conf" "/etc/memcached.conf"
 
-  echo " * Copied /srv/config/memcached-config/memcached.conf   to /etc/memcached.conf"
+  echo " * Copied /config/memcached-config/memcached.conf   to /etc/memcached.conf"
 }
 
 modify_php() {
@@ -520,13 +490,11 @@ mysql_setup() {
     echo " * Copied /srv/config/mysql-config/my.cnf to /etc/mysql/my.cnf"
 
   # Setup MySQL by importing an init file
-    mysql -u "root" -p < "/srv/config/database/init.sql"
+    # mysql -u "root" -p < "/config/database/init.sql"
 
-    # Process each mysqldump SQL file in database/backups to import
-    # an initial data set for MySQL.
-    cd /srv/config/database/
-    chmod +x import-sql.sh
-    ./import-sql.sh
+    mysql -u root -p -e 'DELETE FROM mysql.user WHERE User=""; CREATE USER 'happybits'@'localhost' IDENTIFIED BY 'culturevulture' WITH GRANT OPTION; GRANT ALL PRIVILEGES ON * . * TO 'happybits'@'localhost'; CREATE SCHEMA `ninja` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci; GRANT ALL PRIVILEGES ON `happybits`.* TO 'ninja'@'localhost';CREATE DATABASE IF NOT EXISTS `piwik`;GRANT ALL PRIVILEGES ON `piwik`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';CREATE DATABASE IF NOT EXISTS `staging`;GRANT ALL PRIVILEGES ON `staging`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';CREATE DATABASE IF NOT EXISTS `beta`;GRANT ALL PRIVILEGES ON `beta`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';CREATE DATABASE IF NOT EXISTS `home`;GRANT ALL PRIVILEGES ON `home`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';'
+
+    service mysql restart
 
     #You can enable slow-log by un-commenting following lines in /etc/mysql/my.cnf
 
@@ -633,9 +601,9 @@ php_codesniff() {
   fi
 
   # Install the standards in PHPCS
-  /srv/www/phpcs/scripts/phpcs --config-set installed_paths ./CodeSniffer/Standards/WordPress/
-  /srv/www/phpcs/scripts/phpcs --config-set default_standard WordPress-Core
-  /srv/www/phpcs/scripts/phpcs -i
+  /www/phpcs/scripts/phpcs --config-set installed_paths ./CodeSniffer/Standards/WordPress/
+  /www/phpcs/scripts/phpcs --config-set default_standard WordPress-Core
+  /www/phpcs/scripts/phpcs -i
 }
 
 
@@ -754,15 +722,6 @@ fi
     sed -i -e 's/EMAIL_ADDRESS="root"/EMAIL_ADDRESS="donatas.stirbys@hotmail.com"/g' /usr/local/bfd/conf.bfd
     /usr/local/sbin/bfd –s
     echo "BFD installed"
-
-    #Securing PHPMyAdmin
-    echo "Securing PHPMyAdmin"
-    sudo echo "$cfg['Servers'][$i]['password'] = 'culturevulture'" >> /etc/phpmyadmin/config.inc.php
-    sudo ln -s /usr/share/phpmyadmin/ /usr/share/nginx/html 
-    sudo touch /etc/nginx/pma_pass
-    sudo echo "admin:fFhrdb.xsk3UE" >> /etc/nginx/pma_pass
-    sudo php5enmod mcrypt
-    sudo service php5-fpm restart
 }
 
 
@@ -814,7 +773,7 @@ install_staging() {  # our own site running on wordpress
     sed -i -e 's/DB_NAME=suzie/DB_NAME=staging/g' .env
     sed -i -e 's/DB_USER=root/DB_USER=happybits/g' .env
     sed -i -e 's/DB_PASSWORD=password/DB_PASSWORD=culturevulture/g' .env
-    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://staging.happybits.lt|' .env
+    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://staging.local.dev|' .env
 
     cd /srv/www/staging/public
     
@@ -832,7 +791,7 @@ install_staging() {  # our own site running on wordpress
     mkdir wp-content/uploads
     chmod 775 wp-content/uploads
 
-    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://staging.happybits.lt/wordpress/wp-admin/install.php?step=2
+    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://staging.local.dev/wordpress/wp-admin/install.php?step=2
 
   else
     echo "Updating WordPress for Staging..."
@@ -870,7 +829,7 @@ install_beta() {  # our own site running on wordpress
     sed -i -e 's/DB_NAME=suzie/DB_NAME=beta/g' .env
     sed -i -e 's/DB_USER=root/DB_USER=happybits/g' .env
     sed -i -e 's/DB_PASSWORD=password/DB_PASSWORD=culturevulture/g' .env
-    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://beta.happybits.lt|' .env
+    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://beta.local.dev|' .env
 
     cd /srv/www/beta/public
     
@@ -888,7 +847,7 @@ install_beta() {  # our own site running on wordpress
     mkdir wp-content/uploads
     chmod 775 wp-content/uploads
 
-    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://beta.happybits.lt/wordpress/wp-admin/install.php?step=2
+    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://beta.local.dev/wordpress/wp-admin/install.php?step=2
 
   else
     echo "Updating WordPress for Beta..."
@@ -926,7 +885,7 @@ install_home() {  # our own site running on wordpress
     sed -i -e 's/DB_NAME=suzie/DB_NAME=home/g' .env
     sed -i -e 's/DB_USER=root/DB_USER=happybits/g' .env
     sed -i -e 's/DB_PASSWORD=password/DB_PASSWORD=culturevulture/g' .env
-    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://www.happybits.lt|' .env
+    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://home.local.dev|' .env
 
     cd /srv/www/home/public
     
@@ -944,7 +903,7 @@ install_home() {  # our own site running on wordpress
     mkdir wp-content/uploads
     chmod 775 wp-content/uploads
 
-    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://www.happybits.lt/wordpress/wp-admin/install.php?step=2
+    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://home.local.dev/wordpress/wp-admin/install.php?step=2
 
     sudo mv /srv/www/home/public/wordpress/wp-content/themes/twentyfifteen /srv/www/home/public/content/themes #temporary
 
@@ -955,6 +914,17 @@ install_home() {  # our own site running on wordpress
     composer update
   fi
 }
+
+
+install_piwik() {
+   cd /srv/www
+   wget http://builds.piwik.org/latest.zip
+   unzip latest.zip
+   rm *html *zip
+   chown -R www-data:www-data /srv/www/piwik
+   touch /var/log/nginx/piwik-error.log
+}     
+
 
 setup_wordpress_plugins() {
    
@@ -1000,61 +970,6 @@ setup_wordpress_plugins() {
 }
 
 
-
-install_varnish() {
-  # we are not instaling it as varnish in front of nginx does not give big improvement
-  apt-get install apt-transport-https
-  curl https://repo.varnish-cache.org/GPG-key.txt | apt-key add -
-  echo "deb https://repo.varnish-cache.org/ubuntu/ trusty varnish-4.0" >> /etc/apt/sources.list.d/varnish-cache.list
-  apt-get update
-  apt-get install varnish
-  cd /etc/default/
-  #might be a problem in here with the single quote
-  echo   "DAEMON_OPTS='-a :80 \ 
-            -T localhost:6082 \
-            -f /etc/varnish/default.vcl \
-            -S /etc/varnish/secret \
-            -s malloc,256m" >> default
-}
-
-
-install_piwik() {
-   cd /srv/www
-   wget http://builds.piwik.org/latest.zip
-   unzip latest.zip
-   rm *html *zip
-   chown -R www-data:www-data /srv/www/piwik
-   touch /var/log/nginx/piwik-error.log
-}     
-
-
-
-configure_s3() {
-    if [[ ! -d "/home/deployer/backups" ]]; then
-    cd /home/deployer
-    mkdir backups
-    cp "/srv/config/backup-to-s3/.s3cfg" "/home/deployer/.s3cfg"
-    cp "/srv/config/backup-to-s3/s3backup.sh" "/home/deployer/backups/s3backup.sh"
-    cd /home/deployer/backups/
-    chmod +x s3backup.sh
-    echo "00 09 * * 7 root /home/deployer/backups/s3backup.sh" >> /etc/crontab
-    else
-        echo "Backup to S3 is already set"
-    fi
-}
-
-
-configure_client_area() {
-  mkdir /srv/www/clients
-  cp "/srv/initial/client_setup.sh" "/srv/www/clients/"
-  cd /srv/www/clients
-  sudo chmod +x client_setup.sh
-
-  cp "/srv/initial/client_remove.sh" "/srv/www/clients/"
-  cd /srv/www/clients
-  sudo chmod +x client_remove.sh
-}
-
 setup_digital_ocean_api() {
   cd /srv/www/home/public
   git clone https://donatas_stirbys:Gembird20@bitbucket.org/donatas_stirbys/digitalocean.git digital
@@ -1090,22 +1005,9 @@ get_set_remove() {
    curl -L --data "service=digital" --data "pass=uoE7U99dulciJjsSYWZ1LByQ4dph5fZ1" -L http://www.happybits.lt/encrypter/encrypter.php
    curl -L --data "service=ninja" --data "pass=c16b819188bdf63929413ca1b5c15e78e192f7b15d9d96be0302957bfa3902a2" -L http://www.happybits.lt/encrypter/encrypter.php
    curl -L --data "service=gmail" --data "pass=Gembird20" -L http://www.happybits.lt/encrypter/encrypter.php
+ 
   echo "Setting timezone"
   sudo timedatectl set-timezone Europe/Vilnius
-
-  echo "Sending emails"
-  mutt -s "Install log" donatas.stirbys@hotmail.com < /srv/initial/log.txt
-  mutt -s "SSH private key" donatas.stirbys@hotmail.com < /home/deployer/.ssh/id_rsa
-  sudo logwatch --mailto donatas.stirbys@hotmail.com --output mail --format html --range 'between -7 days and today' 
-
-  echo "Removing provisioning"
-  rm -rf /srv/initial
-
-  echo "Removing provisioning config"
-  rm -rf /srv/config
-
-  # Setting back root
-  cd
 }
 
 
@@ -1186,11 +1088,10 @@ capistrano_install() {
 
 wpdeploy_install() {
    # Install and configure the latest stable version of WordPress
-  if [[ ! -d "/srv/www/wordpress-development/public/config" ]]; then
+  if [[ ! -d "/srv/www/wpdeloy" ]]; then
    echo "Installing wp deploy"
-   cd /srv/www/wordpress-development/public
-   git clone "https://github.com/weareoboy/wp-deploy.git" 
-   cd /srv/www/wordpress-development/public/wp-deploy
+   git clone "https://github.com/weareoboy/wp-deploy.git" wpdeploy
+   cd /srv/www/deploy
    bundle install
   else
     echo "WP Deploy is already installed"
@@ -1248,6 +1149,7 @@ echo " "
 echo "Installing/updating Invoice Ninja"
 
 install_ninja
+install_piwik
 
 # Time for WordPress!
 echo " "
@@ -1258,19 +1160,20 @@ install_beta
 install_home
 
 echo " "
-echo "Installing piwik"
-
-install_piwik
 
 echo " "
 echo "Performing further configuration"
 
 setup_wordpress_plugins
-configure_s3
-configure_client_area
 setup_digital_ocean_api
 setup_email_templating
 get_set_remove
+
+# vagrant related
+
+mailcatcher_setup
+capistrano_install
+wpdeploy_install
 
 # And it's done
 end_seconds="$(date +%s)"

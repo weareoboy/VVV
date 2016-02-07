@@ -1,14 +1,14 @@
 
 server {
     listen       80;
-    server_name  happybits.lt;
+    server_name  home.local.dev;
     root         /srv/www/home/public;
     include      /etc/nginx/nginx-wp-common.conf;
 }
 
 server {
     listen 80;
-    server_name finance.happybits.lt;
+    server_name ninja.local.dev;
     root "/srv/www/ninja/public";
 
     index index.html index.htm index.php;
@@ -47,7 +47,7 @@ server {
 
 server {
     listen 80;
-    server_name stats.happybits.lt;
+    server_name piwik.local.dev;
     root "/srv/www/piwik";
 
     index index.html index.htm index.php;
@@ -84,29 +84,9 @@ server {
     }
 }
 
-
-server {
-    listen       8080;                         
-    server_name  localhost;                     
-    location / {
-        root   /usr/share/phpmyadmin;          
-        index index.php  index.html index.htm;
-        auth_basic "Admin Login";
-        auth_basic_user_file /etc/nginx/pma_pass;
-    }
-    location ~ .php$ {
-        root           /usr/share/phpmyadmin;   
-        fastcgi_pass   unix:/var/run/php5-fpm.sock;
-        fastcgi_index  index.php;
-        fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
-        include        fastcgi_params;
-    }
-}
-
-
 server {
     listen       80;
-    server_name  staging.happybits.lt;
+    server_name  staging.local.dev;
     root         /srv/www/staging/public;
     include      /etc/nginx/nginx-wp-common.conf;
 }
@@ -114,7 +94,7 @@ server {
 
 server {
     listen       80;
-    server_name  beta.happybits.lt;
+    server_name  beta.local.dev;
     root         /srv/www/beta/public;
     include      /etc/nginx/nginx-wp-common.conf;
 }

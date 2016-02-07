@@ -8,6 +8,13 @@
 # automatically parsed as long as they are located in subdirectories
 # of the www/ directory.
 local.dev
-development.local.dev
-#integration.local.dev
-#staging.local.dev
+
+home.local.dev
+staging.local.dev
+beta.local.dev
+
+ninja.local.dev
+piwik.local.dev
+
+
+
