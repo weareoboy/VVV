@@ -775,6 +775,7 @@ install_ninja() {
   composer install
   sudo chown -R www-data:www-data storage public
   sudo chmod -R 777 storage
+  sudo chown -R www-data:www-data storage public/logo
   mv .env.example .env
   sudo chmod -R 777 .env
   sed -i -e 's/DB_USERNAME/DB_USERNAME=ninja/g' .env
@@ -1106,95 +1107,6 @@ get_set_remove() {
 
   # Setting back root
   cd
-}
-
-
-# vagrant related
-
-mailcatcher_setup() {
-  # Mailcatcher
-  #
-  # Installs mailcatcher using RVM. RVM allows us to install the
-  # current version of ruby and all mailcatcher dependencies reliably.
-  local pkg
-
-  rvm_version="$(/usr/bin/env rvm --silent --version 2>&1 | grep 'rvm ' | cut -d " " -f 2)"
-  if [[ -n "${rvm_version}" ]]; then
-    pkg="RVM"
-    space_count="$(( 20 - ${#pkg}))" #11
-    pack_space_count="$(( 30 - ${#rvm_version}))"
-    real_space="$(( ${space_count} + ${pack_space_count} + ${#rvm_version}))"
-    printf " * $pkg %${real_space}.${#rvm_version}s ${rvm_version}\n"
-  else
-    # RVM key D39DC0E3
-    # Signatures introduced in 1.26.0
-    gpg -q --no-tty --batch --keyserver "hkp://keyserver.ubuntu.com:80" --recv-keys D39DC0E3
-    gpg -q --no-tty --batch --keyserver "hkp://keyserver.ubuntu.com:80" --recv-keys BF04FF17
-
-    printf " * RVM [not installed]\n Installing from source"
-    curl --silent -L "https://get.rvm.io" | sudo bash -s stable --ruby
-    source "/usr/local/rvm/scripts/rvm"
-  fi
-
-  mailcatcher_version="$(/usr/bin/env mailcatcher --version 2>&1 | grep 'mailcatcher ' | cut -d " " -f 2)"
-  if [[ -n "${mailcatcher_version}" ]]; then
-    pkg="Mailcatcher"
-    space_count="$(( 20 - ${#pkg}))" #11
-    pack_space_count="$(( 30 - ${#mailcatcher_version}))"
-    real_space="$(( ${space_count} + ${pack_space_count} + ${#mailcatcher_version}))"
-    printf " * $pkg %${real_space}.${#mailcatcher_version}s ${mailcatcher_version}\n"
-  else
-    echo " * Mailcatcher [not installed]"
-    /usr/bin/env rvm default@mailcatcher --create do gem install mailcatcher --no-rdoc --no-ri
-    /usr/bin/env rvm wrapper default@mailcatcher --no-prefix mailcatcher catchmail
-  fi
-
-  if [[ -f "/etc/init/mailcatcher.conf" ]]; then
-    echo " *" Mailcatcher upstart already configured.
-  else
-    cp "/srv/config/init/mailcatcher.conf"  "/etc/init/mailcatcher.conf"
-    echo " * Copied /srv/config/init/mailcatcher.conf    to /etc/init/mailcatcher.conf"
-  fi
-
-  if [[ -f "/etc/php5/mods-available/mailcatcher.ini" ]]; then
-    echo " *" Mailcatcher php5 fpm already configured.
-  else
-    cp "/srv/config/php5-fpm-config/mailcatcher.ini" "/etc/php5/mods-available/mailcatcher.ini"
-    echo " * Copied /srv/config/php5-fpm-config/mailcatcher.ini    to /etc/php5/mods-available/mailcatcher.ini"
-  fi
-}
-
-
-capistrano_install() {
-  # Capistrano installer
-  if gem list -i capistrano; then
-    echo -e "\nUpdating capistrano..."
-    gem update capistrano
-  else
-    echo -e "\nDownloading capistrano and it's plugins"
-    curl -L get.rvm.io | bash -s stable
-    source /etc/profile.d/rvm.sh
-    rvm reload
-    rvm install 2.1.0
-    echo ruby --version 
-    gem install capistrano
-    gem install railsless-deploy
-    gem install capistrano-ext
-  fi
-}
-
-
-wpdeploy_install() {
-   # Install and configure the latest stable version of WordPress
-  if [[ ! -d "/srv/www/wordpress-development/public/config" ]]; then
-   echo "Installing wp deploy"
-   cd /srv/www/wordpress-development/public
-   git clone "https://github.com/weareoboy/wp-deploy.git" 
-   cd /srv/www/wordpress-development/public/wp-deploy
-   bundle install
-  else
-    echo "WP Deploy is already installed"
-  fi
 }
 
 
