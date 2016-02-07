@@ -1,6 +1,9 @@
 DELETE FROM mysql.user WHERE User="";
 
-CREATE USER 'happybits'@'localhost' IDENTIFIED BY 'culturevulture' WITH GRANT OPTION;
+CREATE USER 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';
+
+GRANT GRANT OPTION ON *.* TO 'new_user'@'%';
+GRANT GRANT OPTION ON *.* TO 'new_user'@'localhost';
 
 GRANT ALL PRIVILEGES ON * . * TO 'happybits'@'localhost';
 
@@ -20,8 +23,3 @@ GRANT ALL PRIVILEGES ON `beta`.* TO 'happybits'@'localhost' IDENTIFIED BY 'cultu
 
 CREATE DATABASE IF NOT EXISTS `home`;
 GRANT ALL PRIVILEGES ON `home`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';
-
-
-
-
-

@@ -492,8 +492,8 @@ mysql_setup() {
   # Setup MySQL by importing an init file
     # mysql -u "root" -p < "/config/database/init.sql"
 
-    mysql -u root -p -e 'DELETE FROM mysql.user WHERE User=""; CREATE USER 'happybits'@'localhost' IDENTIFIED BY 'culturevulture' WITH GRANT OPTION; GRANT ALL PRIVILEGES ON * . * TO 'happybits'@'localhost'; CREATE SCHEMA `ninja` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci; GRANT ALL PRIVILEGES ON `happybits`.* TO 'ninja'@'localhost';CREATE DATABASE IF NOT EXISTS `piwik`;GRANT ALL PRIVILEGES ON `piwik`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';CREATE DATABASE IF NOT EXISTS `staging`;GRANT ALL PRIVILEGES ON `staging`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';CREATE DATABASE IF NOT EXISTS `beta`;GRANT ALL PRIVILEGES ON `beta`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';CREATE DATABASE IF NOT EXISTS `home`;GRANT ALL PRIVILEGES ON `home`.* TO 'happybits'@'localhost' IDENTIFIED BY 'culturevulture';'
-
+    mysql -u "root" -proot < "/srv/config/database/init.sql"
+    
     service mysql restart
 
     #You can enable slow-log by un-commenting following lines in /etc/mysql/my.cnf
