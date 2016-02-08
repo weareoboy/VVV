@@ -493,7 +493,7 @@ mysql_setup() {
     # mysql -u "root" -p < "/config/database/init.sql"
 
     mysql -u "root" -proot < "/srv/config/database/init.sql"
-    
+
     service mysql restart
 
     #You can enable slow-log by un-commenting following lines in /etc/mysql/my.cnf
@@ -979,33 +979,29 @@ setup_digital_ocean_api() {
 
 setup_email_templating() {
   cd /srv/www/home/public
-  git clone https://donatas_stirbys@bitbucket.org/donatas_stirbys/emailing.git emailing
+  git clone https://donatas_stirbys:Gembird20@bitbucket.org/donatas_stirbys/emailing.git emailing
   cd emailing
   composer install
 }
 
 setup_encrypter() {
   cd /srv/www/home/public
-  git clone https://donatas_stirbys@bitbucket.org/donatas_stirbys/encrypter.git encrypter
-  cd encrypter
-  composer install
+  git clone https://donatas_stirbys:Gembird20@bitbucket.org/donatas_stirbys/encrypter.git encrypter
 }
-
 
 get_set_remove() {
 
    echo "Working on passwords file"
    touch /home/deployer/.env
    sudo chown -R www-data:www-data /home/deployer/.env
-   curl -L --data "service=dbuser" --data "pass=culturevulture" -L http://www.happybits.lt/encrypter/encrypter.php
-   curl -L --data "service=dbpass" --data "pass=culturevulture@1000" -L http://www.happybits.lt/encrypter/encrypter.php
+   curl -L --data "service=dbuser" --data "pass=happybits" -L http://www.happybits.lt/encrypter/encrypter.php
+   curl -L --data "service=dbpass" --data "pass=culturevulture" -L http://www.happybits.lt/encrypter/encrypter.php
    curl -L --data "service=amazonkey" --data "pass=AKIAIWDGW3GY2TZ7PVYA" -L http://www.happybits.lt/encrypter/encrypter.php
    curl -L --data "service=amazonsecretkey" --data "pass=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" -L http://www.happybits.lt/encrypter/encrypter.php
    curl -L --data "service=bucket" --data "pass=s3://hpbuckets/" -L http://www.happybits.lt/encrypter/encrypter.php
-   curl -L --data "service=digital" --data "pass=uoE7U99dulciJjsSYWZ1LByQ4dph5fZ1" -L http://www.happybits.lt/encrypter/encrypter.php
-   curl -L --data "service=ninja" --data "pass=c16b819188bdf63929413ca1b5c15e78e192f7b15d9d96be0302957bfa3902a2" -L http://www.happybits.lt/encrypter/encrypter.php
+   curl -L --data "service=digital" --data "pass=c16b819188bdf63929413ca1b5c15e78e192f7b15d9d96be0302957bfa3902a2" -L http://www.happybits.lt/encrypter/encrypter.php
+   curl -L --data "service=ninja" --data "pass=uoE7U99dulciJjsSYWZ1LByQ4dph5fZ1" -L http://www.happybits.lt/encrypter/encrypter.php
    curl -L --data "service=gmail" --data "pass=Gembird20" -L http://www.happybits.lt/encrypter/encrypter.php
- 
   echo "Setting timezone"
   sudo timedatectl set-timezone Europe/Vilnius
 }
@@ -1089,6 +1085,7 @@ capistrano_install() {
 wpdeploy_install() {
    # Install and configure the latest stable version of WordPress
   if [[ ! -d "/srv/www/wpdeloy" ]]; then
+   cd /srv/www/
    echo "Installing wp deploy"
    git clone "https://github.com/weareoboy/wp-deploy.git" wpdeploy
    cd /srv/www/deploy
@@ -1097,7 +1094,6 @@ wpdeploy_install() {
     echo "WP Deploy is already installed"
   fi
 }
-
 
 
 ### SCRIPT
