@@ -793,6 +793,8 @@ install_staging() {  # our own site running on wordpress
 
     wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://staging.local.dev/wordpress/wp-admin/install.php?step=2
 
+    sudo mv /srv/www/staging/public/wordpress/wp-content/themes/twentyfifteen /srv/www/staging/public/content/themes #temporary
+
   else
     echo "Updating WordPress for Staging..."
     cd /srv/www/staging
@@ -848,6 +850,8 @@ install_beta() {  # our own site running on wordpress
     chmod 775 wp-content/uploads
 
     wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://beta.local.dev/wordpress/wp-admin/install.php?step=2
+
+    sudo mv /srv/www/beta/public/wordpress/wp-content/themes/twentyfifteen /srv/www/beta/public/content/themes #temporary
 
   else
     echo "Updating WordPress for Beta..."
@@ -1065,11 +1069,14 @@ mailcatcher_setup() {
 
 capistrano_install() {
   # Capistrano installer
-  if gem list -i capistrano; then
+  if ! gem list -i capistrano; then
     echo -e "\nUpdating capistrano..."
     gem update capistrano
   else
     echo -e "\nDownloading capistrano and it's plugins"
+
+     sudo gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
+
     curl -L get.rvm.io | bash -s stable
     source /etc/profile.d/rvm.sh
     rvm reload
@@ -1078,6 +1085,7 @@ capistrano_install() {
     gem install capistrano
     gem install railsless-deploy
     gem install capistrano-ext
+    gem install capistrano-slackify
   fi
 }
 
