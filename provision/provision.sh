@@ -82,6 +82,10 @@ apt_package_check_list=(
   logwatch
   s3cmd 
   mysqltuner
+  apache2-utils
+  apache2
+  redis-server 
+  php5-redis
 
   # ntp service to keep clock current
   ntp
@@ -125,12 +129,6 @@ apt_package_check_list=(
   fail2ban
 )
 
-
-### FUNCTIONS
-
-# DDOS https://easyengine.io/tutorials/nginx/fail2ban/
-
-#pabaigti mysql dump i S3 scripta, prideti i cron, kad runnintu weekly
 
 inform_about_disk_space() {
 
@@ -464,6 +462,7 @@ if [[ -d "/etc/php5/fpm/" ]]; then
   cd /etc/php5/fpm
   sed -i -e 's/;opcache.enable=0/opcache.enable=1/g' php.ini
   sed -i -e 's/;opcache.memory_consumption=64/opcache.memory_consumption=128/g' php.ini
+  sed -i -e 's/max_execution_time = 30/max_execution_time = 300/g' php.ini
   sed -i -e 's/;opcache.max_accelerated_files=2000/opcache.max_accelerated_files=4000/g' php.ini
   sed -i -e 's/;opcache_revalidate_freq = 2/opcache_revalidate_freq = 240/g' php.ini
   sed -i -e 's/disable_functions = pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wait,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,/disable_functions = pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wait,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,exec,system,shell_exec,passthru,/g' php.ini
@@ -489,10 +488,10 @@ mysql_setup() {
     cp "/srv/config/mysql-config/my.cnf" "/etc/mysql/my.cnf"
     echo " * Copied /srv/config/mysql-config/my.cnf to /etc/mysql/my.cnf"
 
-  # Setup MySQL by importing an init file
+    # Setup MySQL by importing an init file
     # mysql -u "root" -p < "/config/database/init.sql"
 
-    mysql -u "root" -proot < "/srv/config/database/init.sql"
+    mysql -u "root" -proot -Bse "DELETE FROM mysql.user WHERE User='';CREATE USER happybits@'localhost' IDENTIFIED BY 'culturevulture';GRANT GRANT OPTION ON *.* TO happybits@'%';GRANT GRANT OPTION ON *.* TO happybits@'localhost';GRANT ALL PRIVILEGES ON * . * TO happybits@'localhost';CREATE SCHEMA ninja DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;GRANT ALL PRIVILEGES ON happybits.* TO ninja@'localhost';FLUSH PRIVILEGES;CREATE DATABASE IF NOT EXISTS piwik;GRANT ALL PRIVILEGES ON piwik.* TO happybits@'localhost' IDENTIFIED BY 'culturevulture';"
 
     service mysql restart
 
@@ -729,7 +728,7 @@ install_ninja() {
  if [[ ! -d " /srv/www/ninja/" ]]; then
  	echo "Downloading Invoice Ninja"
  	cd /srv/www
- 	git clone https://github.com/invoiceninja/invoiceninja.git ninja
+ 	git clone https://donatas_stirbys:Gembird20@bitbucket.org/donatas_stirbys/invoiceninja.git ninja
   cd /srv/www/ninja
   composer install
   sudo chown -R www-data:www-data storage public
@@ -745,181 +744,6 @@ install_ninja() {
  fi
 }
 
-
-install_staging() {  # our own site running on wordpress
-  # Install and configure the latest stable version of WordPress
-  if [[ ! -d "/srv/www/staging" ]]; then
-
-    WP_ADMIN="happybits"
-    WP_ADMIN_PASS="culturevulture"
-    WP_ADMIN_NAME="Donatas"
-    WP_ADMIN_EMAIL="donatas.stirbys@hotmail.com"
-    WP_URL="http://www.happybits.lt"
- 
-    # echo to wp-config
-
-    echo "define('AUTOSAVE_INTERVAL', 300);" >> /srv/www/staging/public/wp-config.php
-    echo " define('WP_POST_REVISIONS', false);" >> /srv/www/staging/public/wp-config.php
-    echo "define('EMPTY_TRASH_DAYS', 7);" >> /srv/www/staging/public/wp-config.php
-    echo "define('DISALLOW_FILE_EDIT', true);" >> /srv/www/staging/public/wp-config.php
-    echo "define('FORCE_SSL_ADMIN', true);" >> /srv/www/staging/public/wp-config.php
-
-    echo "Downloading WordPress for Staging"
-    cd /srv/www/
-    git clone "https://github.com/ravaboard/suzie.git" "/srv/www/staging"
-    cd /srv/www/staging
-    mv .env.example .env
-    composer install
-    sed -i -e 's/DB_NAME=suzie/DB_NAME=staging/g' .env
-    sed -i -e 's/DB_USER=root/DB_USER=happybits/g' .env
-    sed -i -e 's/DB_PASSWORD=password/DB_PASSWORD=culturevulture/g' .env
-    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://staging.local.dev|' .env
-
-    cd /srv/www/staging/public
-    
-    #set WP salts
-    perl -i -pe'
-    BEGIN {
-    @chars = ("a" .. "z", "A" .. "Z", 0 .. 9);
-    push @chars, split //, "!@#$%^&*()-_ []{}<>~\`+=,.;:/?|";
-    sub salt { join "", map $chars[ rand @chars ], 1 .. 64 }
-    }
-    s/put your unique phrase here/salt()/ge
-    ' wp-config.php
-
-    cd /srv/www/staging/public/wordpress/
-    mkdir wp-content/uploads
-    chmod 775 wp-content/uploads
-
-    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://staging.local.dev/wordpress/wp-admin/install.php?step=2
-
-    sudo mv /srv/www/staging/public/wordpress/wp-content/themes/twentyfifteen /srv/www/staging/public/content/themes #temporary
-
-  else
-    echo "Updating WordPress for Staging..."
-    cd /srv/www/staging
-    git pull --rebase origin master
-    composer update
-  fi
-}
-
-
-install_beta() {  # our own site running on wordpress
-  # Install and configure the latest stable version of WordPress
-  if [[ ! -d "/srv/www/beta" ]]; then
-
-    WP_ADMIN="happybits"
-    WP_ADMIN_PASS="culturevulture"
-    WP_ADMIN_NAME="Donatas"
-    WP_ADMIN_EMAIL="donatas.stirbys@hotmail.com"
-    WP_URL="http://www.happybits.lt"
- 
-    # echo to wp-config
-
-    echo "define('AUTOSAVE_INTERVAL', 300);" >> /srv/www/beta/public/wp-config.php
-    echo " define('WP_POST_REVISIONS', false);" >> /srv/www/beta/public/wp-config.php
-    echo "define('EMPTY_TRASH_DAYS', 7);" >> /srv/www/beta/public/wp-config.php
-    echo "define('DISALLOW_FILE_EDIT', true);" >> /srv/www/beta/public/wp-config.php
-    echo "define('FORCE_SSL_ADMIN', true);" >> /srv/www/beta/public/wp-config.php
-
-    echo "Downloading WordPress for Beta"
-    cd /srv/www/
-    git clone "https://github.com/ravaboard/suzie.git" "/srv/www/beta"
-    cd /srv/www/beta
-    mv .env.example .env
-    composer install
-    sed -i -e 's/DB_NAME=suzie/DB_NAME=beta/g' .env
-    sed -i -e 's/DB_USER=root/DB_USER=happybits/g' .env
-    sed -i -e 's/DB_PASSWORD=password/DB_PASSWORD=culturevulture/g' .env
-    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://beta.local.dev|' .env
-
-    cd /srv/www/beta/public
-    
-    #set WP salts
-    perl -i -pe'
-    BEGIN {
-    @chars = ("a" .. "z", "A" .. "Z", 0 .. 9);
-    push @chars, split //, "!@#$%^&*()-_ []{}<>~\`+=,.;:/?|";
-    sub salt { join "", map $chars[ rand @chars ], 1 .. 64 }
-    }
-    s/put your unique phrase here/salt()/ge
-    ' wp-config.php
-
-    cd /srv/www/beta/public/wordpress/
-    mkdir wp-content/uploads
-    chmod 775 wp-content/uploads
-
-    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://beta.local.dev/wordpress/wp-admin/install.php?step=2
-
-    sudo mv /srv/www/beta/public/wordpress/wp-content/themes/twentyfifteen /srv/www/beta/public/content/themes #temporary
-
-  else
-    echo "Updating WordPress for Beta..."
-    cd /srv/www/beta
-    git pull --rebase origin master
-    composer update
-  fi
-}
-
-
-install_home() {  # our own site running on wordpress
-  # Install and configure the latest stable version of WordPress
-  if [[ ! -d "/srv/www/home" ]]; then
-
-    WP_ADMIN="happybits"
-    WP_ADMIN_PASS="culturevulture"
-    WP_ADMIN_NAME="Donatas"
-    WP_ADMIN_EMAIL="donatas.stirbys@hotmail.com"
-    WP_URL="http://www.happybits.lt"
- 
-    # echo to wp-config
-
-    echo "define('AUTOSAVE_INTERVAL', 300);" >> /srv/www/home/public/wp-config.php
-    echo " define('WP_POST_REVISIONS', false);" >> /srv/www/home/public/wp-config.php
-    echo "define('EMPTY_TRASH_DAYS', 7);" >> /srv/www/home/public/wp-config.php
-    echo "define('DISALLOW_FILE_EDIT', true);" >> /srv/www/home/public/wp-config.php
-    echo "define('FORCE_SSL_ADMIN', true);" >> /srv/www/home/public/wp-config.php
-
-    echo "Downloading WordPress for Home"
-    cd /srv/www/
-    git clone "https://github.com/ravaboard/suzie.git" "/srv/www/home"
-    cd /srv/www/home
-    mv .env.example .env
-    composer install
-    sed -i -e 's/DB_NAME=suzie/DB_NAME=home/g' .env
-    sed -i -e 's/DB_USER=root/DB_USER=happybits/g' .env
-    sed -i -e 's/DB_PASSWORD=password/DB_PASSWORD=culturevulture/g' .env
-    sed -i -e 's|SITE_URL=http://domain.com|SITE_URL=http://home.local.dev|' .env
-
-    cd /srv/www/home/public
-    
-    #set WP salts
-    perl -i -pe'
-    BEGIN {
-    @chars = ("a" .. "z", "A" .. "Z", 0 .. 9);
-    push @chars, split //, "!@#$%^&*()-_ []{}<>~\`+=,.;:/?|";
-    sub salt { join "", map $chars[ rand @chars ], 1 .. 64 }
-    }
-    s/put your unique phrase here/salt()/ge
-    ' wp-config.php
-
-    cd /srv/www/home/public/wordpress/
-    mkdir wp-content/uploads
-    chmod 775 wp-content/uploads
-
-    wget --post-data "weblog_title=Happybits&user_name=${WP_ADMIN}&admin_password=${WP_ADMIN_PASS}&admin_password2=${WP_ADMIN_PASS}&admin_email=${WP_ADMIN_EMAIL}" http://home.local.dev/wordpress/wp-admin/install.php?step=2
-
-    sudo mv /srv/www/home/public/wordpress/wp-content/themes/twentyfifteen /srv/www/home/public/content/themes #temporary
-
-  else
-    echo "Updating WordPress for Home..."
-    cd /srv/www/home
-    git pull --rebase origin master
-    composer update
-  fi
-}
-
-
 install_piwik() {
    cd /srv/www
    wget http://builds.piwik.org/latest.zip
@@ -928,50 +752,6 @@ install_piwik() {
    chown -R www-data:www-data /srv/www/piwik
    touch /var/log/nginx/piwik-error.log
 }     
-
-
-setup_wordpress_plugins() {
-   
-    echo "Installing temporary wordpress"
-
-    cd /srv/www/
-    mkdir temp
-    cd temp
-
-    wp core download --allow-root
-    wp core config --allow-root --dbname=beta --dbuser=happybits --dbpass=culturevulture --quiet
-    wp core install --allow-root --url=local.wordpress.dev --quiet --title="Local WordPress Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
-
-    # Plugins to install and activate.
-    WP_PLUGINS=()
-    WP_PLUGINS+=( anti-spam )
-    WP_PLUGINS+=( autoptimize )
-    WP_PLUGINS+=( disable-comments )
-    WP_PLUGINS+=( disable-search )
-    WP_PLUGINS+=( easy-wp-smtp )
-    WP_PLUGINS+=( w3-total-cache )
-    WP_PLUGINS+=( vaultpress )
-    WP_PLUGINS+=( akismet )
-    WP_PLUGINS+=( wordpress-importer )
-    WP_PLUGINS+=( google-sitemap-generator )
-    WP_PLUGINS+=( limit-login-attempts )
-    WP_PLUGINS+=( all-inone-seo-pack )
-    WP_PLUGINS+=( revision-control )
-    WP_PLUGINS+=( simple-trackback-disabler )
-    WP_PLUGINS+=( wp-super-cache )
-
-    # Install and activate plugins.
-    for WP_PLUGIN in "${WP_PLUGINS[@]}"; do
-      wp plugin install ${WP_PLUGIN} --allow-root
-    done
-
-    cp -fr wp-content/plugins /srv/www/home/public/content/ 
-    cp -fr wp-content/plugins /srv/www/staging/public/content/ 
-    cp -fr wp-content/plugins /srv/www/beta/public/content/ 
-
-    rm -rf /srv/www/temp
-    echo "Setting up wordpress plugins done"
-}
 
 
 setup_digital_ocean_api() {
@@ -1068,25 +848,17 @@ mailcatcher_setup() {
 
 
 capistrano_install() {
-  # Capistrano installer
-  if ! gem list -i capistrano; then
-    echo -e "\nUpdating capistrano..."
-    gem update capistrano
-  else
     echo -e "\nDownloading capistrano and it's plugins"
-
-     sudo gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
-
+    sudo gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
     curl -L get.rvm.io | bash -s stable
     source /etc/profile.d/rvm.sh
     rvm reload
     rvm install 2.1.0
-    echo ruby --version 
+    ruby --version 
     gem install capistrano
     gem install railsless-deploy
     gem install capistrano-ext
     gem install capistrano-slackify
-  fi
 }
 
 
@@ -1155,20 +927,9 @@ echo "Installing/updating Invoice Ninja"
 install_ninja
 install_piwik
 
-# Time for WordPress!
-echo " "
-echo "Installing/updating WordPress Environments"
-
-install_staging
-install_beta
-install_home
-
-echo " "
-
 echo " "
 echo "Performing further configuration"
 
-setup_wordpress_plugins
 setup_digital_ocean_api
 setup_email_templating
 get_set_remove

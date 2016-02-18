@@ -9,12 +9,9 @@
 # of the www/ directory.
 local.dev
 
-home.local.dev
-staging.local.dev
-beta.local.dev
-
 ninja.local.dev
 piwik.local.dev
 
+test.local.dev
 
 
