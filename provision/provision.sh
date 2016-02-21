@@ -864,12 +864,10 @@ capistrano_install() {
 
 wpdeploy_install() {
    # Install and configure the latest stable version of WordPress
-  if [[ ! -d "/srv/www/wpdeloy" ]]; then
+  if [[ ! -d "/srv/www/deloy" ]]; then
    cd /srv/www/
    echo "Installing wp deploy"
-   git clone "https://github.com/weareoboy/wp-deploy.git" wpdeploy
-   cd /srv/www/deploy
-   bundle install
+   git clone https://donatas_stirbys:Gembird20@bitbucket.org/donatas_stirbys/deploys.git deploy
   else
     echo "WP Deploy is already installed"
   fi
