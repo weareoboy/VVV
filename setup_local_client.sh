@@ -50,7 +50,7 @@ setup_local_client() {  # our own site running on wordpress
 
     cd /srv/www/deploy/config/
 
-    echo " ${brand}:
+    echo -e "\n ${brand}:
       host: localhost
       database: ${brand}
       username: happybits
