@@ -74,9 +74,10 @@ setup_local_client() {  # our own site running on wordpress
     echo "Running composer"
     
     cd /srv/www/${brand}
-    mv .env.example .env
+   
     composer install
-
+    mv .env.example .env
+	
     echo "Installing packages with composer is done"
  
     # echo to wp-config
